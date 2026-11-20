@@ -70,9 +70,7 @@ export function ParentsGuidePanel({
   const [sectionCollapsed, setSectionCollapsed] = useState<boolean>(!keepExpanded);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set());
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(() => new Set());
-  const [rememberedImdb, setRememberedImdb] = useState<{ metaId: string; id: string } | null>(
-    null,
-  );
+  const [rememberedImdb, setRememberedImdb] = useState<{ metaId: string; id: string } | null>(null);
 
   // Hidden rails are not mounted. A visible but collapsed rail must not resolve
   // its IMDb ID or request the guide until the user expands it.

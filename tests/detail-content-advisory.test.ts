@@ -375,10 +375,7 @@ test("parents guide panel: defers fetching until section is expanded and renders
   // Both resolution and guide loading are gated by expansion, not merely layout visibility.
   assert.match(panel, /const isFetchEnabled = propGuide === undefined && !sectionCollapsed;/);
   assert.match(panel, /const shouldResolveImdb = isFetchEnabled && !imdbId && !cachedImdbId;/);
-  assert.match(
-    panel,
-    /useImdbId\(meta, settings\.tmdbKey, \{ enabled: shouldResolveImdb \}\)/,
-  );
+  assert.match(panel, /useImdbId\(meta, settings\.tmdbKey, \{ enabled: shouldResolveImdb \}\)/);
   assert.match(
     panel,
     /useParentsGuide\(isFetchEnabled \? resolvedImdbId : null, \{\s*enabled: isFetchEnabled,\s*\}\)/,

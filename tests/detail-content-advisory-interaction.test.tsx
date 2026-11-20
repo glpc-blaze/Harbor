@@ -157,9 +157,7 @@ test("a hidden Content Advisory on a TMDB title can be shown, with no IMDb reque
   };
 
   try {
-    await React.act(async () =>
-      root.render(React.createElement(DetailLayoutEditor, { sections })),
-    );
+    await React.act(async () => root.render(React.createElement(DetailLayoutEditor, { sections })));
     assert.equal(document.querySelector('[data-section="parentsGuide"]'), null);
     assert.equal(imdbLookups, 0);
 
@@ -173,13 +171,18 @@ test("a hidden Content Advisory on a TMDB title can be shown, with no IMDb reque
     assert.equal(imdbLookups, 0, "restoring a collapsed rail must not start IMDb lookups");
     assert.equal(guideFetches.length, 0);
 
-    await click([...document.querySelectorAll("button")].find((b) => b.textContent === "Expand") ?? null);
+    await click(
+      [...document.querySelectorAll("button")].find((b) => b.textContent === "Expand") ?? null,
+    );
     assert.equal(imdbLookups, 1, "expansion should start exactly one IMDb lookup");
     assert.match(document.body.textContent ?? "", /Loading Content Advisory/);
     assert.equal(guideFetches.length, 0, "guide fetch must wait for verified IMDb ID");
 
     await React.act(async () => resolveImdb("tt1234567"));
-    assert.ok(guideFetches.includes("tt1234567"), "resolved IMDb ID must be used to fetch the guide");
+    assert.ok(
+      guideFetches.includes("tt1234567"),
+      "resolved IMDb ID must be used to fetch the guide",
+    );
     assert.match(
       document.body.textContent ?? "",
       /Loading Content Advisory/,
@@ -192,8 +195,12 @@ test("a hidden Content Advisory on a TMDB title can be shown, with no IMDb reque
     await React.act(async () => resolveGuide(null));
     assert.match(document.body.textContent ?? "", /No detailed content advisory submitted/);
 
-    await click([...document.querySelectorAll("button")].find((b) => b.textContent === "Collapse") ?? null);
-    await click([...document.querySelectorAll("button")].find((b) => b.textContent === "Expand") ?? null);
+    await click(
+      [...document.querySelectorAll("button")].find((b) => b.textContent === "Collapse") ?? null,
+    );
+    await click(
+      [...document.querySelectorAll("button")].find((b) => b.textContent === "Expand") ?? null,
+    );
     assert.equal(imdbLookups, 1, "re-expanding a verified title must reuse its IMDb ID");
     assert.deepEqual(loadDetailCustomization().hidden, []);
   } finally {
