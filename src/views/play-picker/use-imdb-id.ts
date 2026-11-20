@@ -5,9 +5,10 @@ import { externalToKitsu, kitsuToImdb } from "@/lib/providers/anime-mapping";
 import { tmdbImdbId } from "@/lib/providers/tmdb";
 import { cinemetaImdbFallback } from "./picker-utils";
 
-export type ResolvedImdb = { id: string | null; verified: boolean };
+export type ResolvedImdb = { id: string | null; verified: boolean; settled: boolean };
 
-const UNRESOLVED: ResolvedImdb = { id: null, verified: false };
+const UNRESOLVED: ResolvedImdb = { id: null, verified: false, settled: false };
+const NOT_FOUND: ResolvedImdb = { id: null, verified: false, settled: true };
 
 export function useImdbId(
   meta: Meta,
@@ -15,15 +16,21 @@ export function useImdbId(
   options?: { enabled?: boolean },
 ): ResolvedImdb {
   const enabled = options?.enabled ?? true;
-  const [resolved, setResolved] = useState<ResolvedImdb>(UNRESOLVED);
+  const requestKey = JSON.stringify([meta.id, meta.type, meta.addonOrigin?.id, tmdbKey]);
+  const [resolved, setResolved] = useState<{ key: string; value: ResolvedImdb }>({
+    key: "",
+    value: UNRESOLVED,
+  });
   useEffect(() => {
     if (!enabled) {
-      setResolved(UNRESOLVED);
+      setResolved({ key: requestKey, value: UNRESOLVED });
       return;
     }
     let cancelled = false;
-    const set = (r: ResolvedImdb) => {
-      if (!cancelled) setResolved(r);
+    // A new title or a re-enabled lookup must not expose an earlier result.
+    setResolved({ key: requestKey, value: UNRESOLVED });
+    const set = (r: Pick<ResolvedImdb, "id" | "verified">) => {
+      if (!cancelled) setResolved({ key: requestKey, value: { ...r, settled: true } });
     };
     if (meta.id.startsWith("tt")) {
       set({ id: meta.id, verified: true });
@@ -46,17 +53,17 @@ export function useImdbId(
             return;
           }
           const fromXml = await kitsuToImdb(kitsuId).catch(() => null);
-          set(fromXml ? { id: fromXml, verified: true } : UNRESOLVED);
+          set(fromXml ? { id: fromXml, verified: true } : NOT_FOUND);
           return;
         }
-        set(UNRESOLVED);
+        set(NOT_FOUND);
       })();
       return () => {
         cancelled = true;
       };
     }
     if (isAddonNativeMeta(meta)) {
-      set(UNRESOLVED);
+      set(NOT_FOUND);
       return;
     }
     (async () => {
@@ -72,11 +79,11 @@ export function useImdbId(
         narrowMediaType(meta.type),
         meta.releaseInfo,
       ).catch(() => null);
-      set(fallback ? { id: fallback, verified: false } : UNRESOLVED);
+      set(fallback ? { id: fallback, verified: false } : NOT_FOUND);
     })();
     return () => {
       cancelled = true;
     };
-  }, [meta.id, meta.type, meta.addonOrigin?.id, tmdbKey, enabled]);
-  return resolved;
+  }, [meta.id, meta.type, meta.addonOrigin?.id, tmdbKey, enabled, requestKey]);
+  return enabled && resolved.key === requestKey ? resolved.value : UNRESOLVED;
 }

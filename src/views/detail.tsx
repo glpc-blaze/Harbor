@@ -220,8 +220,6 @@ import { useAnimeCharacters } from "./detail/use-anime-characters";
 import { TraktComments } from "./detail/trakt-comments";
 import { LetterboxdPanel } from "./detail/letterboxd-panel";
 import { ParentsGuidePanel } from "./detail/parents-guide-panel";
-import { useImdbId } from "./play-picker/use-imdb-id";
-import { loadDetailCustomization } from "@/lib/detail-customization";
 import { RateButton } from "@/components/ratings/rate-button";
 import {
   chainedPrimaryRating,
@@ -444,13 +442,6 @@ export function DetailView({
   const titleHomeServers = useTitleMediaServers(meta.id, detail?.imdbId);
   const { toggle: toggleFavorite } = useMediaFavorites();
   const isFav = useIsFavorite(meta.id, [detail?.imdbId]);
-  const isParentsGuideHidden = loadDetailCustomization().hidden.includes("parentsGuide");
-  const existingImdbId = (meta.id.startsWith("tt") ? meta.id : null) ?? detail?.imdbId ?? null;
-  const inferredImdb = useImdbId(meta, settings.tmdbKey, {
-    enabled: !existingImdbId && !isParentsGuideHidden,
-  });
-  const resolvedParentsGuideImdb =
-    existingImdbId ?? (inferredImdb.verified ? inferredImdb.id : null);
   const inSession = roomSnapshot.state === "joined" && roomSnapshot.participants.length >= 2;
   useScrollMemory(`meta:${meta.id}`, scrollRef, settings.resumeDetailScroll, true);
 
@@ -3306,14 +3297,19 @@ export function DetailView({
             });
           }
 
-          if (resolvedParentsGuideImdb) {
-            railSections.push({
-              key: "parentsGuide",
-              label: t("Content Advisory"),
-              minHeight: 60,
-              node: <ParentsGuidePanel imdbId={resolvedParentsGuideImdb} />,
-            });
-          }
+          // Always register this rail so a hidden section remains restorable even when
+          // the title has no IMDb ID yet. ContentRails only mounts visible rails.
+          railSections.push({
+            key: "parentsGuide",
+            label: t("Content Advisory"),
+            minHeight: 60,
+            node: (
+              <ParentsGuidePanel
+                meta={meta}
+                imdbId={(meta.id.startsWith("tt") ? meta.id : null) ?? detail?.imdbId ?? null}
+              />
+            ),
+          });
           if (detail?.collection) {
             railSections.push({
               key: "collection",

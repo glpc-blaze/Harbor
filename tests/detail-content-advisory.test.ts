@@ -332,35 +332,18 @@ test("imdb advisory notes: parses totalItems count when guideItems exceeds fetch
   clearParentsGuideCache();
 });
 
-test("detail view: avoids unnecessary IMDb resolution lookups and eliminates page-level advisory requests", () => {
+test("detail view: registers Content Advisory even when the title has no IMDb ID", () => {
   const detail = read("src/views/detail.tsx");
 
-  // Reuses existing IMDb ID directly from meta/detail for the open title
-  assert.match(
-    detail,
-    /const existingImdbId =\s*\(meta\.id\.startsWith\("tt"\) \? meta\.id : null\) \?\? detail\?\.imdbId \?\? null;/,
-  );
+  // Registration is independent of ID availability, including when the rail is hidden.
+  assert.match(detail, /railSections\.push\(\{\s*key: "parentsGuide",/);
+  assert.match(detail, /<ParentsGuidePanel\s+meta=\{meta\}\s+imdbId=/);
+  assert.doesNotMatch(detail, /if \(resolvedParentsGuideImdb\)/);
+  assert.doesNotMatch(detail, /isParentsGuideHidden/);
 
-  // useImdbId is only enabled when no existing IMDb ID is found and Content Advisory is not hidden
-  assert.match(
-    detail,
-    /const inferredImdb = useImdbId\(meta, settings\.tmdbKey, \{\s*enabled: !existingImdbId && !isParentsGuideHidden,\s*\}\);/,
-  );
-
-  // Inferred IMDb ID is only resolved for content advisory when verified
-  assert.match(
-    detail,
-    /const resolvedParentsGuideImdb =\s*existingImdbId \?\? \(inferredImdb\.verified \? inferredImdb\.id : null\);/,
-  );
-
-  // DetailView does NOT invoke useParentsGuide at page level
-  assert.equal(detail.includes("useParentsGuide("), false);
-
-  // In rail sections, parentsGuide is mounted via ParentsGuidePanel without passing eager page-level guide data
-  assert.match(
-    detail,
-    /if \(resolvedParentsGuideImdb\) \{\s*railSections\.push\(\{\s*key: "parentsGuide",\s*label: t\("Content Advisory"\),\s*minHeight: 60,\s*node: <ParentsGuidePanel imdbId=\{resolvedParentsGuideImdb\} \/>,\s*\}\);/,
-  );
+  // No title-level advisory requests or IMDb lookups before the panel is expanded.
+  assert.doesNotMatch(detail, /useImdbId\(/);
+  assert.doesNotMatch(detail, /useParentsGuide\(/);
 });
 
 test("useParentsGuide hook: binds fetched data strictly to IMDb ID preventing stale title data", () => {
@@ -389,14 +372,16 @@ test("useParentsGuide hook: binds fetched data strictly to IMDb ID preventing st
 test("parents guide panel: defers fetching until section is expanded and renders notes only when category is expanded", () => {
   const panel = read("src/views/detail/parents-guide-panel.tsx");
 
-  // Hook fetching is gated by !sectionCollapsed
+  // Both resolution and guide loading are gated by expansion, not merely layout visibility.
+  assert.match(panel, /const isFetchEnabled = propGuide === undefined && !sectionCollapsed;/);
+  assert.match(panel, /const shouldResolveImdb = isFetchEnabled && !imdbId && !cachedImdbId;/);
   assert.match(
     panel,
-    /const isFetchEnabled = propGuide !== undefined \? false : !sectionCollapsed;/,
+    /useImdbId\(meta, settings\.tmdbKey, \{ enabled: shouldResolveImdb \}\)/,
   );
   assert.match(
     panel,
-    /const internalData = useParentsGuide\(propGuide === undefined \? imdbId : null, \{\s*enabled: isFetchEnabled,\s*\}\);/,
+    /useParentsGuide\(isFetchEnabled \? resolvedImdbId : null, \{\s*enabled: isFetchEnabled,\s*\}\)/,
   );
 
   // Collapsed section does not render category rows (scoped to the content area)

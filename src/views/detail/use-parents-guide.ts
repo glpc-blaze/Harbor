@@ -85,8 +85,11 @@ export function useParentsGuide(
   const guide = isMatch ? state.guide : null;
   const error = isMatch ? state.error : false;
   const hasData = Boolean(guide && guide.categories.length > 0);
+  // Report loading on the first render after the ID changes, before the effect runs.
+  // Otherwise an unresolved guide briefly appears as "no data" during ID resolution.
+  const isLoading = Boolean(enabled && normalizedId && (loading || !isMatch));
 
   const retry = () => setRetryNonce((n) => n + 1);
 
-  return { guide, loading, hasData, error, retry };
+  return { guide, loading: isLoading, hasData, error, retry };
 }

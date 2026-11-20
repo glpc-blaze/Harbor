@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -13,6 +13,7 @@ import {
   Wine,
 } from "lucide-react";
 import { openUrl } from "@/lib/window";
+import type { Meta } from "@/lib/cinemeta";
 import { useT } from "@/lib/i18n";
 import { useSettings } from "@/lib/settings";
 import {
@@ -21,6 +22,7 @@ import {
   type ParentsGuideResult,
 } from "@/lib/providers/imdb-parents-guide";
 import { useParentsGuide } from "./use-parents-guide";
+import { useImdbId } from "../play-picker/use-imdb-id";
 
 const KEEP_EXPANDED_KEY = "harbor.content-advisory.keep-expanded";
 
@@ -43,15 +45,18 @@ function getCategoryIcon(id: string, label: string) {
 }
 
 export function ParentsGuidePanel({
+  meta,
   imdbId,
   guide: propGuide,
   loading: propLoading,
 }: {
+  meta: Meta;
   imdbId: string | null;
   guide?: ParentsGuideResult | null;
   loading?: boolean;
 }) {
   const t = useT();
+  const { settings } = useSettings();
 
   const [keepExpanded, setKeepExpanded] = useState<boolean>(() => {
     try {
@@ -65,14 +70,30 @@ export function ParentsGuidePanel({
   const [sectionCollapsed, setSectionCollapsed] = useState<boolean>(!keepExpanded);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set());
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(() => new Set());
+  const [rememberedImdb, setRememberedImdb] = useState<{ metaId: string; id: string } | null>(
+    null,
+  );
 
-  // Only enable internal fetching if the section is expanded (or keepExpanded)
-  const isFetchEnabled = propGuide !== undefined ? false : !sectionCollapsed;
-  const internalData = useParentsGuide(propGuide === undefined ? imdbId : null, {
+  // Hidden rails are not mounted. A visible but collapsed rail must not resolve
+  // its IMDb ID or request the guide until the user expands it.
+  const isFetchEnabled = propGuide === undefined && !sectionCollapsed;
+  const cachedImdbId = rememberedImdb?.metaId === meta.id ? rememberedImdb.id : null;
+  const shouldResolveImdb = isFetchEnabled && !imdbId && !cachedImdbId;
+  const inferredImdb = useImdbId(meta, settings.tmdbKey, { enabled: shouldResolveImdb });
+  const resolvedImdbId = imdbId ?? cachedImdbId ?? (inferredImdb.verified ? inferredImdb.id : null);
+
+  // Re-expanding the same title shouldn't resolve its IMDb ID a second time.
+  useEffect(() => {
+    if (inferredImdb.verified && inferredImdb.id) {
+      setRememberedImdb({ metaId: meta.id, id: inferredImdb.id });
+    }
+  }, [meta.id, inferredImdb.id, inferredImdb.verified]);
+  const internalData = useParentsGuide(isFetchEnabled ? resolvedImdbId : null, {
     enabled: isFetchEnabled,
   });
   const guide = propGuide !== undefined ? propGuide : internalData.guide;
-  const loading = propLoading !== undefined ? propLoading : internalData.loading;
+  const resolvingImdb = shouldResolveImdb && !inferredImdb.settled;
+  const loading = propLoading !== undefined ? propLoading : resolvingImdb || internalData.loading;
 
   const handleKeepExpandedChange = (checked: boolean) => {
     setKeepExpanded(checked);
@@ -110,7 +131,9 @@ export function ParentsGuidePanel({
     });
   };
 
-  const imdbGuideUrl = imdbId ? `https://www.imdb.com/title/${imdbId}/parentalguide` : null;
+  const imdbGuideUrl = resolvedImdbId
+    ? `https://www.imdb.com/title/${resolvedImdbId}/parentalguide`
+    : null;
 
   return (
     <section className="flex flex-col pt-3" data-testid="parents-guide-section">
@@ -198,6 +221,10 @@ export function ParentsGuidePanel({
                   <RotateCcw size={12} />
                   <span>{t("Retry")}</span>
                 </button>
+              </div>
+            ) : !resolvedImdbId && propGuide === undefined ? (
+              <div className="py-4 text-[13px] text-ink-muted">
+                {t("Content Advisory is unavailable for this title (no verified IMDb ID).")}
               </div>
             ) : !guide || guide.categories.length === 0 ? (
               <div className="py-4 text-[13px] text-ink-muted">

@@ -372,6 +372,8 @@ const uiFallback: Record<string, string> = {
   "Failed to load Content Advisory.": "Failed to load Content Advisory.",
   "No detailed content advisory submitted for this title on IMDb.":
     "No detailed content advisory submitted for this title on IMDb.",
+  "Content Advisory is unavailable for this title (no verified IMDb ID).":
+    "Content Advisory is unavailable for this title (no verified IMDb ID).",
   "{votedFor} of {totalVotes} users rated {severity}":
     "{votedFor} of {totalVotes} users rated {severity}",
   "{count} spoiler entry hidden — SHOW": "{count} spoiler entry hidden — SHOW",
